@@ -78,7 +78,7 @@ class StateStore:
 class SmsForwarder:
     """短信检测 + 转发主逻辑。"""
 
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, config_path: str = "config.json"):
         self.cfg = cfg
         self._log = get_logger()
         self._db = MessageDatabase(cfg.db_path)
@@ -86,10 +86,49 @@ class SmsForwarder:
         self._mailer = EmailSender(cfg.smtp)
         self._stop = False
         self._last_rowid: Optional[int] = None
+        # 热重载支持：记录配置文件路径与最后读取时的修改时间
+        self._config_path = Path(config_path).expanduser().resolve()
+        try:
+            self._config_mtime: Optional[float] = self._config_path.stat().st_mtime
+        except OSError:
+            self._config_mtime = None
 
     def request_stop(self) -> None:
         """请求停止（供信号处理器调用）。"""
         self._stop = True
+
+    def _reload_config_if_changed(self) -> None:
+        """
+        检测 config.json 是否被修改，若是则热重载 SMTP/前缀/轮询间隔等配置。
+
+        - 以文件修改时间判断变更，避免每轮重读文件
+        - 加载失败（如 JSON 语法错误、关键字段缺失）时保留旧配置继续运行，
+          更新记录时间避免反复报错，待下次保存后再尝试
+        - db_path / state_path / log_dir 等影响连接与日志的项需重启才能生效
+        """
+        try:
+            mtime = self._config_path.stat().st_mtime
+        except OSError:
+            return  # 文件暂时不可见（编辑器原子替换等），下一轮再试
+        if mtime == self._config_mtime:
+            return
+
+        try:
+            new_cfg = load_config(str(self._config_path))
+        except ConfigError as e:
+            self._log.error("config.json 变更但重新加载失败，继续使用旧配置: %s", e)
+            self._config_mtime = mtime  # 避免每轮刷屏；下次保存后再触发重载
+            return
+
+        self.cfg = new_cfg
+        self._mailer = EmailSender(new_cfg.smtp)
+        self._config_mtime = mtime
+        self._log.info(
+            "检测到 config.json 变更，已热重载: SMTP=%s:%d security=%s 前缀=%s 轮询=%ds",
+            new_cfg.smtp.server, new_cfg.smtp.port,
+            new_cfg.smtp.security or "明文", new_cfg.prefixes,
+            new_cfg.poll_interval,
+        )
 
     def _init_last_rowid(self) -> None:
         """
@@ -122,6 +161,9 @@ class SmsForwarder:
 
         :return: 本次发送的邮件数
         """
+        # 每轮先检查配置是否有变更，实现免重启热重载
+        self._reload_config_if_changed()
+
         messages = self._db.fetch_new_messages(self._last_rowid or 0)
         new_max = self._db.get_max_rowid()
 
@@ -229,7 +271,7 @@ def main(argv=None) -> int:
     log.info("服务启动: 配置文件=%s", args.config)
 
     # 3. 初始化转发器并运行
-    forwarder = SmsForwarder(cfg)
+    forwarder = SmsForwarder(cfg, config_path=args.config)
     _install_signal_handlers(forwarder)
 
     try:

@@ -172,6 +172,8 @@ python3 main.py --once
 ./stop.sh       # 停止
 ```
 
+> **热重载**：程序每轮轮询（默认 5 秒）都会检查 `config.json` 是否被修改。修改并保存后，SMTP 账号/授权码、收件人、匹配前缀、轮询间隔等会**自动生效，无需重启**。仅修改 `db_path` / `state_path` / `log_dir` 等影响连接与日志的项仍需重启。配置写错（如 JSON 语法错误）时程序会保留旧配置继续运行并在日志中提示。
+
 ### 开机自启（launchd）
 
 `./start.sh` 启动的程序在电脑重启后**不会自动运行**，需要手动重新执行。如需常驻（开机/登录后自动运行、崩溃自动重启），使用项目自带的 launchd 配置 `com.cangwei.sms2email.plist`，把它注册为 macOS 的 LaunchAgent 后台服务。
@@ -277,8 +279,10 @@ plist 是 launchd（macOS 系统服务管理器）的 LaunchAgent 配置：
 未开启「完全磁盘访问权限」，按上文授权后重启程序。
 
 **Q2：登录 SMTP 失败（`SMTPAuthenticationError`）？**
-- 确认 `username` 是完整的 139 邮箱地址
+- 确认 `username` 是完整的 139 邮箱地址（**逐字核对，容易少写点或写错**）
 - 确认 `password` 是**授权码**而非登录密码（网易/139 均需授权码）
+- 若报 `454 ... USER_NOTFOUND_ERR`：说明 139 服务器**不认这个用户名**。多半是邮箱地址本身填错（如漏了 `.`），或 SMTP 客户端服务未在网页版开启、授权码无效。登录 [mail.10086.cn](https://mail.10086.cn) → 设置 → 客户端设置 → 开启 SMTP 服务并重新生成「客户端授权码」
+- 若报 `450 Mail rejected, please try again`：是 139 的**临时拒信**，程序会自动重试，通常第二次即可成功
 - 部分运营商会限制 25 端口，可改用 `"port": 465, "security": "ssl"` 或 587 + STARTTLS
 
 **Q3：收不到邮件？**
