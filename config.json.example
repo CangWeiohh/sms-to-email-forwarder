@@ -17,7 +17,7 @@
     "security": "",
     "username": "你的139邮箱地址@139.com",
     "password": "你的邮箱授权码（不是登录密码）",
-    "receiver": "收件人邮箱地址",
+    "receiver": ["收件人邮箱1@x.com", "收件人邮箱2@y.com"],
     "retry": 2,
     "timeout": 30
   },
