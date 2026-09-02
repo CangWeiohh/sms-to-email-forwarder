@@ -87,12 +87,20 @@ open -e config.json
 | `smtp.security` | 安全模式：`""`（明文，默认）、`"ssl"`、`"starttls"` |
 | `smtp.username` | SMTP 登录账号（139 邮箱完整地址） |
 | `smtp.password` | **邮箱授权码**（不是登录密码，见下方） |
-| `smtp.receiver` | 收件人邮箱 |
+| `smtp.receiver` | 收件人邮箱，支持多个：单个字符串、逗号分隔（如 `a@x.com,b@y.com`，中文 `；`/`、`/空格均可）或列表 `["a@x.com","b@y.com"]`，自动去重，会同时发给所有收件人 |
 | `smtp.retry` | 发送失败重试次数，默认 2 |
 | `smtp.timeout` | 连接超时（秒），默认 30 |
 | `db_path` | 短信数据库路径，默认 `~/Library/Messages/chat.db` |
 | `state_path` | 状态文件，默认 `state.json` |
 | `log_dir` / `log_level` | 日志目录 / 级别 |
+
+多收件人示例（任选一种写法，都会同时发给所有收件人）：
+
+```json
+"receiver": "a@x.com,b@y.com"
+// 或
+"receiver": ["a@x.com", "b@y.com"]
+```
 
 ### 139 邮箱授权码获取
 

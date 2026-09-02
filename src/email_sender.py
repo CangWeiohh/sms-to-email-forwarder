@@ -89,6 +89,7 @@ class EmailSender:
 
         body = _BODY_TEMPLATE.format(sender=sender, time=time_str, text=text)
         msg = self._build_message(body)
+        receivers = self._smtp.receiver
 
         # 1 次初始尝试 + retry 次重试
         for attempt in range(1, self._retry + 2):
@@ -96,7 +97,7 @@ class EmailSender:
                 self._send_once(msg, password)
                 self._log.info(
                     "邮件发送成功: 来源=%s 收件人=%s (第 %d 次尝试)",
-                    sender, self._smtp.receiver, attempt,
+                    sender, ", ".join(receivers), attempt,
                 )
                 return True
             except (smtplib.SMTPException, socket.timeout,
@@ -119,7 +120,8 @@ class EmailSender:
         msg = MIMEText(body, "plain", "utf-8")
         # 发件人（带名称，兼容中文显示）
         msg["From"] = formataddr((self._smtp.username, self._smtp.username))
-        msg["To"] = self._smtp.receiver
+        # 多个收件人：To 头用逗号分隔（send_message 会自动逐个投递）
+        msg["To"] = ", ".join(self._smtp.receiver)
         msg["Subject"] = SUBJECT
         msg["Date"] = formatdate(localtime=True)
         # 手动生成 Message-ID，避免被判定为群发/垃圾邮件

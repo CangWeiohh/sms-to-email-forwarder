@@ -9,6 +9,7 @@
 """
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
@@ -29,7 +30,7 @@ class SMTPConfig:
     security: str = ""             # 安全模式：""(明文) / "ssl" / "starttls"
     username: str = ""             # 登录账号（139 邮箱完整地址）
     password: str = ""             # 邮箱授权码（不是登录密码！）
-    receiver: str = ""             # 收件人邮箱地址
+    receiver: List[str] = field(default_factory=list)  # 收件人邮箱列表（支持单个/多个）
     retry: int = 2                 # 发送失败重试次数
     timeout: int = 30              # 连接超时（秒）
 
@@ -46,6 +47,33 @@ class Config:
     log_level: str = "INFO"                         # 日志级别
 
 
+def _parse_receivers(value) -> List[str]:
+    """
+    解析收件人配置，兼容多种写法：
+    - 单个字符串：如 "a@x.com"
+    - 字符串分隔：如 "a@x.com,b@y.com"（逗号/分号/空格均可，含中文标点）
+    - 字符串列表：如 ["a@x.com", "b@y.com"]
+    自动去重并保留顺序。
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        parts = re.split(r"[,，;；、\s]+", value.strip())
+    elif isinstance(value, list):
+        parts = [str(v) for v in value]
+    else:
+        return []
+
+    seen = set()
+    result: List[str] = []
+    for p in parts:
+        p = p.strip()
+        if p and p not in seen:
+            seen.add(p)
+            result.append(p)
+    return result
+
+
 def _load_smtp(raw: dict) -> SMTPConfig:
     """解析 SMTP 配置段。"""
     smtp = SMTPConfig()
@@ -54,7 +82,10 @@ def _load_smtp(raw: dict) -> SMTPConfig:
     smtp.security = str(raw.get("security", smtp.security)).strip().lower()
     smtp.username = str(raw.get("username", smtp.username)).strip()
     smtp.password = str(raw.get("password", smtp.password))
-    smtp.receiver = str(raw.get("receiver", smtp.receiver)).strip()
+    # 兼容两种键名：receiver（字符串或列表）/ receivers（列表）
+    smtp.receiver = _parse_receivers(
+        raw.get("receivers", raw.get("receiver", smtp.receiver))
+    )
     smtp.retry = int(raw.get("retry", smtp.retry))
     smtp.timeout = int(raw.get("timeout", smtp.timeout))
 
@@ -111,7 +142,7 @@ def load_config(path: str = "config.json") -> Config:
     if not cfg.smtp.username:
         raise ConfigError("smtp.username 不能为空（139 邮箱完整地址）")
     if not cfg.smtp.receiver:
-        raise ConfigError("smtp.receiver 不能为空")
+        raise ConfigError("smtp.receiver 不能为空（单个邮箱、逗号分隔或多个邮箱列表均可）")
 
     return cfg
 
