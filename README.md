@@ -20,7 +20,7 @@ SMTP 发送邮件
 - ✅ 兼容新版 macOS（自动识别 High Sierra 之后「纳秒级」时间戳，换算本地时间）
 - ✅ 后台轮询新短信，默认每 5 秒一次（`poll_interval` 可配置）
 - ✅ 基于 `message ROWID` 去重：首次启动跳过历史短信、重启不重复发送（`state.json`）
-- ✅ 多前缀关键词匹配（`startswith`，先去除首尾空格）
+- ✅ 双规则关键词匹配：`start_with`（开头匹配）+ `contains`（正文包含），任一命中即转发（先去除首尾空格）
 - ✅ 支持 SMTP 明文 / SSL / STARTTLS 三种方式
 - ✅ 发送失败自动重试 2 次（指数退避）、超时控制、失败记日志、单次失败不影响主流程
 - ✅ 中文邮件（UTF-8 MIME）、自动生成 Message-ID 降低被判定为群发的概率
@@ -45,7 +45,7 @@ sms-to-email-forwarder/
 │   ├── config.py            # 配置加载与校验
 │   ├── logger.py            # 日志初始化（控制台 + 文件轮转）
 │   ├── database.py          # 只读访问 chat.db
-│   ├── message_filter.py    # 前缀关键词匹配
+│   ├── message_filter.py    # 关键词匹配（start_with 开头 / contains 包含）
 │   └── email_sender.py      # SMTP 邮件发送（重试/超时/中文）
 └── logs/                    # 日志目录（自动创建）
     └── app.log
@@ -81,7 +81,7 @@ open -e config.json
 | 字段 | 说明 |
 | --- | --- |
 | `poll_interval` | 轮询间隔（秒），默认 5 |
-| `prefixes` | 前缀关键词列表，短信内容去除首尾空格后以任一关键词开头即命中 |
+| `prefixes` | 匹配关键词，两种写法：① 新版对象 `{"start_with": [...], "contains": [...]}`；② 旧版列表（等价于只配 `start_with`）。短信去除首尾空格后，`start_with` 命中开头 **或** `contains` 命中正文任意位置，即转发（逻辑为「或」） |
 | `smtp.server` | SMTP 服务器，139 邮箱为 `smtp.139.com` |
 | `smtp.port` | 端口，139 邮箱为 `25`（明文）或 `465`（SSL） |
 | `smtp.security` | 安全模式：`""`（明文，默认）、`"ssl"`、`"starttls"` |
@@ -93,6 +93,21 @@ open -e config.json
 | `db_path` | 短信数据库路径，默认 `~/Library/Messages/chat.db` |
 | `state_path` | 状态文件，默认 `state.json` |
 | `log_dir` / `log_level` | 日志目录 / 级别 |
+
+匹配规则举例（`start_with` 与 `contains` 之间是「或」关系）：
+
+```json
+"prefixes": {
+  "start_with": ["【示例平台】"],
+  "contains":   ["验证码"]
+}
+```
+
+- `【示例平台】验证码412659` → 命中 start_with ✅
+- `尊敬的客户，您的验证码是 1234` → 命中 contains ✅
+- `【示例系统】会议通知`（若未配） → 不命中 ❌
+
+> 旧版写法 `"prefixes": ["【示例平台】"]` 仍然兼容，等价于只配置 `start_with`。
 
 多收件人示例（任选一种写法，都会同时发给所有收件人）：
 

@@ -39,7 +39,8 @@ class SMTPConfig:
 class Config:
     """程序总配置。"""
     poll_interval: int = 5                          # 轮询间隔（秒）
-    prefixes: List[str] = field(default_factory=list)   # 匹配前缀关键词
+    start_with: List[str] = field(default_factory=list)  # 短信必须以其中任意词开头才命中
+    contains: List[str] = field(default_factory=list)    # 短信正文必须包含其中任意词才命中
     smtp: SMTPConfig = field(default_factory=SMTPConfig)
     db_path: str = DEFAULT_DB_PATH                  # 短信数据库路径
     state_path: str = "state.json"                  # 状态文件路径
@@ -71,6 +72,22 @@ def _parse_receivers(value) -> List[str]:
         if p and p not in seen:
             seen.add(p)
             result.append(p)
+    return result
+
+
+def _parse_keywords(value) -> List[str]:
+    """
+    解析关键词列表：接受字符串列表，去空去重保序。
+    """
+    if not isinstance(value, list):
+        return []
+    seen = set()
+    result: List[str] = []
+    for item in value:
+        k = str(item).strip()
+        if k and k not in seen:
+            seen.add(k)
+            result.append(k)
     return result
 
 
@@ -121,11 +138,20 @@ def load_config(path: str = "config.json") -> Config:
     cfg = Config()
     cfg.poll_interval = max(1, int(raw.get("poll_interval", cfg.poll_interval)))
 
-    raw_prefixes = raw.get("prefixes", cfg.prefixes)
+    # 匹配关键词：兼容两种写法
+    # 1) 新版：prefixes 为对象 {"start_with": [...], "contains": [...]}
+    # 2) 旧版：prefixes 为列表（等价于只配置 start_with）
+    raw_prefixes = raw.get("prefixes", {})
     if isinstance(raw_prefixes, list):
-        cfg.prefixes = [str(p).strip() for p in raw_prefixes]
-    if not cfg.prefixes:
-        raise ConfigError("prefixes 不能为空，至少需要一个匹配关键词（如 【示例服务】）")
+        cfg.start_with = _parse_keywords(raw_prefixes)
+    elif isinstance(raw_prefixes, dict):
+        cfg.start_with = _parse_keywords(raw_prefixes.get("start_with", []))
+        cfg.contains = _parse_keywords(raw_prefixes.get("contains", []))
+    if not cfg.start_with and not cfg.contains:
+        raise ConfigError(
+            "prefixes 不能为空，至少需要一个匹配关键词。\n"
+            "推荐写法: {\"start_with\": [\"【示例平台】\"], \"contains\": [\"验证码\"]}"
+        )
 
     raw_smtp = raw.get("smtp")
     if isinstance(raw_smtp, dict):

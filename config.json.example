@@ -1,10 +1,16 @@
 {
   "poll_interval": 5,
-  "prefixes": [
-    "【示例服务】",
-    "【示例系统】",
-    "【示例平台】"
-  ],
+  "prefixes": {
+    "start_with": [
+      "【示例服务】",
+      "【示例系统】",
+      "【示例平台】"
+    ],
+    "contains": [
+      "验证码",
+      "登录"
+    ]
+  },
   "smtp": {
     "server": "smtp.139.com",
     "port": 25,

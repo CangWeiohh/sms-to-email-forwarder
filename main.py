@@ -124,10 +124,11 @@ class SmsForwarder:
         self._mailer = EmailSender(new_cfg.smtp)
         self._config_mtime = mtime
         self._log.info(
-            "检测到 config.json 变更，已热重载: SMTP=%s:%d security=%s 前缀=%s 轮询=%ds",
+            "检测到 config.json 变更，已热重载: SMTP=%s:%d security=%s "
+            "start_with=%s contains=%s 轮询=%ds",
             new_cfg.smtp.server, new_cfg.smtp.port,
-            new_cfg.smtp.security or "明文", new_cfg.prefixes,
-            new_cfg.poll_interval,
+            new_cfg.smtp.security or "明文", new_cfg.start_with,
+            new_cfg.contains, new_cfg.poll_interval,
         )
 
     def _init_last_rowid(self) -> None:
@@ -169,7 +170,7 @@ class SmsForwarder:
 
         sent = 0
         if messages:
-            matched = filter_messages(messages, self.cfg.prefixes)
+            matched = filter_messages(messages, self.cfg.start_with, self.cfg.contains)
             for m in matched:
                 time_str = m.received_at.strftime("%Y-%m-%d %H:%M:%S")
                 self._log.info(
@@ -199,9 +200,10 @@ class SmsForwarder:
         self._db.connect()
         self._init_last_rowid()
         self._log.info(
-            "短信转发程序启动: 轮询间隔=%ds 前缀=%s SMTP=%s:%d security=%s",
+            "短信转发程序启动: 轮询间隔=%ds start_with=%s contains=%s SMTP=%s:%d security=%s",
             self.cfg.poll_interval,
-            self.cfg.prefixes,
+            self.cfg.start_with,
+            self.cfg.contains,
             self.cfg.smtp.server,
             self.cfg.smtp.port,
             self.cfg.smtp.security or "明文",
