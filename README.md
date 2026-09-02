@@ -174,20 +174,72 @@ python3 main.py --once
 
 ### 开机自启（launchd）
 
+`./start.sh` 启动的程序在电脑重启后**不会自动运行**，需要手动重新执行。如需常驻（开机/登录后自动运行、崩溃自动重启），使用项目自带的 launchd 配置 `com.cangwei.sms2email.plist`，把它注册为 macOS 的 LaunchAgent 后台服务。
+
+> 只需要偶尔跑一下的话，可以完全忽略本小节，直接用 `./start.sh` 即可。
+
+#### 1. 按需修改 plist 中的路径
+
+plist 里写死了本项目当前路径与解释器：
+
+| 键 | 默认值 | 何时需要改 |
+| --- | --- | --- |
+| `ProgramArguments` | `/usr/bin/python3` + 项目绝对路径 + `main.py` | 项目移到别处时改路径；使用 Homebrew Python 时把 `/usr/bin/python3` 换成其绝对路径（如 `/opt/homebrew/opt/python/bin/python3`） |
+| `WorkingDirectory` | 项目绝对路径 | 项目移到别处时同步修改 |
+
+可用 `plutil -lint com.cangwei.sms2email.plist` 检查文件语法是否正确。
+
+#### 2. 安装并启动
+
 ```bash
-# 1.（可选）如使用 Homebrew Python，先把 plist 中的 /usr/bin/python3 改为其绝对路径
-# 2. 安装
+# 安装：复制到当前用户的 LaunchAgents 目录
 cp com.cangwei.sms2email.plist ~/Library/LaunchAgents/
+
+# 启动服务（登录后也会自动运行）
 launchctl load ~/Library/LaunchAgents/com.cangwei.sms2email.plist
 
-# 查看状态
+# 查看是否运行
 launchctl list | grep sms2email
-
-# 停止自启
-launchctl unload ~/Library/LaunchAgents/com.cangwei.sms2email.plist
 ```
 
-> 使用 launchd 时，请确认「完全磁盘访问权限」中已勾选 plist 实际使用的 Python 解释器。
+#### 3. 停止 / 卸载自启
+
+```bash
+# 停止服务（但保留自启配置）
+launchctl unload ~/Library/LaunchAgents/com.cangwei.sms2email.plist
+
+# 彻底卸载（删除配置）
+rm -f ~/Library/LaunchAgents/com.cangwei.sms2email.plist
+```
+
+#### 4. 查看日志
+
+launchd 方式运行时，标准输出/错误分别写入：
+
+- `logs/launchd.log`
+- `logs/launchd.err.log`
+
+（与 `./start.sh` 方式共用 `logs/app.log`。）
+
+#### 5. 权限注意
+
+launchd 启动的进程**不经过终端**，因此「完全磁盘访问权限」中只勾选「终端」**无效**。请确认已勾选 plist 实际使用的那个 Python 解释器：
+
+```
+系统设置 → 隐私与安全性 → 完全磁盘访问权限 → 勾选 /usr/bin/python3（或所用解释器）
+```
+
+否则程序仍会报 `unable to open database file`。
+
+#### 工作原理（简要）
+
+plist 是 launchd（macOS 系统服务管理器）的 LaunchAgent 配置：
+
+- `Label`：服务唯一标识 `com.cangwei.sms2email`
+- `ProgramArguments`：启动命令（解释器 + 主程序 + 参数）
+- `RunAtLoad`：加载时立即运行
+- `KeepAlive`：进程退出/崩溃后自动重启
+- `StandardOutPath` / `StandardErrorPath`：输出与错误日志路径
 
 ## 测试步骤
 
