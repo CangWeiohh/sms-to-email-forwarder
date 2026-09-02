@@ -1,0 +1,22 @@
+{
+  "poll_interval": 5,
+  "prefixes": [
+    "【示例服务】",
+    "【示例系统】",
+    "【示例平台】"
+  ],
+  "smtp": {
+    "server": "smtp.139.com",
+    "port": 25,
+    "security": "",
+    "username": "你的139邮箱地址@139.com",
+    "password": "你的邮箱授权码（不是登录密码）",
+    "receiver": "收件人邮箱地址",
+    "retry": 2,
+    "timeout": 30
+  },
+  "db_path": "~/Library/Messages/chat.db",
+  "state_path": "state.json",
+  "log_dir": "logs",
+  "log_level": "INFO"
+}

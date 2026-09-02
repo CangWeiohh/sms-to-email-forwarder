@@ -1,0 +1,6 @@
+# 本项目仅使用 Python 标准库（sqlite3 / smtplib / email / logging / json），
+# 无需安装任何第三方依赖，Python 3.9+ 即可运行。
+#
+# 如仍希望使用虚拟环境，可执行：
+#   python3 -m venv .venv && source .venv/bin/activate
+# 该文件保留空内容以兼容 pip install -r requirements.txt 的常见习惯。

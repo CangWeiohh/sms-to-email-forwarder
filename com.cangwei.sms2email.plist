@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  短信转发程序 launchd 自启配置
+
+  安装（登录后自动运行，随机关机自启）：
+    cp com.cangwei.sms2email.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.cangwei.sms2email.plist
+
+  查看状态：
+    launchctl list | grep sms2email
+
+  停止自启：
+    launchctl unload ~/Library/LaunchAgents/com.cangwei.sms2email.plist
+
+  注意：
+  - 将下方所有 /Users/cangwei/Personal.localized/... 替换为你的实际项目路径
+  - 若使用 Homebrew Python，请将 /usr/bin/python3 换成其绝对路径，
+    并在「完全磁盘访问权限」中勾选对应解释器（见 README）
+-->
+<dict>
+    <key>Label</key>
+    <string>com.cangwei.sms2email</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/cangwei/Personal.localized/develop/github/sms-to-email-forwarder/main.py</string>
+        <string>--config</string>
+        <string>/Users/cangwei/Personal.localized/develop/github/sms-to-email-forwarder/config.json</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/cangwei/Personal.localized/develop/github/sms-to-email-forwarder</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/cangwei/Personal.localized/develop/github/sms-to-email-forwarder/logs/launchd.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/cangwei/Personal.localized/develop/github/sms-to-email-forwarder/logs/launchd.err.log</string>
+</dict>
+</plist>
